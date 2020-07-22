@@ -1,0 +1,63 @@
+import random
+underscores=[]
+def list(str):
+    i=0
+    out=[]
+    while(i<len(str)):
+        out.append(str[i:i+1])
+        i+=1
+    return out
+def combine(str):
+    i=0
+    out=''
+    while(i<len(str)):
+        out+=str[i]
+        i+=1
+    return out
+def reveal(guess):
+    global underscores
+    out=False
+    if(guess==word):
+        underscores=list(word)
+        out=True
+    if(len(guess)==1):
+        a=0
+        while(a<len(word)):
+            if(guess==word[a:a+1]):
+                out=True
+                underscores[a]=word[a:a+1]
+            a+=1
+    return out
+x=1
+y=['apple','banana','orange','lemon','lime','blueberry']
+while(x>0):
+    underscores=[]
+    mistakes=0
+    z=input('Would you like to play hangman? y/n')
+    if(z=='y'):
+        print('Game start!')
+        n=random.randint(0,len(y)-1)
+        word=y[n]
+        i=0
+        while(i<len(word)):
+            underscores.append('_')
+            i+=1
+        print('Time to guess!')
+        print(combine(underscores))
+        while(mistakes<6 and combine(underscores)!=word):
+            g=input('Enter your guess: ')
+
+            if(reveal(g)):
+                print('Nice guess!')
+                print(combine(underscores))
+            else:
+                print('Big mistake!')
+                mistakes+=1
+        if(combine(underscores)==word):
+                print('Congrats, you won!!!')
+        else:
+                print('Tough luck, loser! The word was: '+word)
+    elif(z=='n'):
+             x=0
+    else:
+             print("HEY WISE-GUY, RESPOND WITH y OR n !")
