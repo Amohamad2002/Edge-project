@@ -1,4 +1,0 @@
-print("hello")
-WordList=["Dragon","Scorpion","Runner","Truck","Phone"]
-for x in WordList
- Answer=random.choice(WordList)
