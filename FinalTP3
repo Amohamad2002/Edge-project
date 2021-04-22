@@ -1,0 +1,1049 @@
+import pygame
+vec = pygame.math.Vector2
+pygame.init()
+pygame.mixer.music.set_volume(0.1)
+class Player(pygame.sprite.Sprite):
+    walkRight = [pygame.image.load('R1.png'), pygame.image.load('R2.png'),
+             pygame.image.load('R3.png'), pygame.image.load('R4.png'),
+             pygame.image.load('R5.png'), pygame.image.load('R6.png'),
+             pygame.image.load('R7.png'), pygame.image.load('R8.png'),
+             pygame.image.load('R9.png')]
+    walkLeft = [pygame.image.load('L1.png'), pygame.image.load('L2.png'),
+            pygame.image.load('L3.png'), pygame.image.load('L4.png'),
+            pygame.image.load('L5.png'), pygame.image.load('L6.png'),
+            pygame.image.load('L7.png'), pygame.image.load('L8.png'),
+            pygame.image.load('L9.png')]
+    
+    def __init__(self,game):
+        pygame.sprite.Sprite.__init__(self)
+        self.character = pygame.image.load("standing.png")
+        self.rect = self.character.get_rect()
+        self.screen = pygame.display.set_mode((750,850))
+        self.game = game
+        self.height = 72
+        self.width = 25
+        self.jumping = False
+        self.jumpCount = 8
+        self.walkCount = 0
+        self.right = True
+        self.left = False
+        self.pos = vec(375,615)
+        self.vel = vec(0,0)
+        self.indicator = 1
+        self.rect.x = self.pos.x
+        self.rect.y = self.pos.y
+        self.score = 0
+        self.hearts = 3
+        self.bullets = []
+        self.recoil = 0
+        self.ammo = 0
+        
+    def update(self):
+        
+        self.recoil+=1
+        if self.recoil==10:
+            self.recoil=0
+        takes = pygame.sprite.spritecollide(self,self.game.coins,False)
+        collect = pygame.sprite.spritecollide(self,self.game.guns,False)    
+        hits = pygame.sprite.spritecollide(self,self.game.platforms,False)
+        keys = pygame.key.get_pressed()
+        if self.jumping==False:
+            if keys[pygame.K_SPACE]:
+                self.jumping=True
+                self.jumpSound = pygame.mixer.music.load("Jump.wav")
+                pygame.mixer.music.play(1)
+        else:
+            if self.jumpCount>=-8:
+                self.indicator = 1
+                if self.jumpCount < 0:
+                    self.indicator = -1
+                self.rect.y -= (self.jumpCount ** 2)/2 * self.indicator
+                self.jumpCount -= 0.25
+            else:
+                self.jumping = False
+                self.jumpCount = 8
+        if keys[pygame.K_s]:
+            pygame.draw.rect(self.screen,[0,0,0],(0,750,750,100))
+            if self.ammo>0 and self.recoil==0:
+                self.ammo-=1
+                if self.left:
+                    facing = -1
+                else:
+                    facing = 1
+                self.bullets.append(Shoot(round(self.rect.x + self.rect.width //2), round(self.rect.y + self.rect.height//2), 6, (0,0,0), facing))
+
+        if keys[pygame.K_LEFT]:
+            self.vel.x = -5
+            self.rect.x += self.vel.x
+            self.vel.x = 0
+            self.left = True
+            self.right = False
+            self.walkCount += 1
+        elif keys[pygame.K_RIGHT]:
+            self.vel.x = 5
+            self.rect.x += self.vel.x
+            self.vel.x = 0
+            self.left = False
+            self.right = True
+            self.walkCount+=1
+        else:
+            self.walkCount=0
+        self.rect.x += self.vel.x
+        self.rect.y += self.vel.y
+        if self.rect.x > 750-self.width:
+            self.rect.x = 750-self.width
+        if self.rect.x < 0:
+            self.rect.x = 0            
+        if self.walkCount>=36:
+            self.walkCount-=36
+        elif self.left==True:
+            self.screen.blit(self.walkLeft[self.walkCount//4],(self.rect.x,self.rect.y))
+        elif self.right==True:
+            self.screen.blit(self.walkRight[self.walkCount//4],(self.rect.x,self.rect.y))
+            
+        if not hits:
+            self.rect.y +=10
+        
+        if takes:
+            pygame.mixer.music.load("coinned.wav")
+            pygame.mixer.music.play(1)
+            pygame.draw.rect(self.game.screen,[0,0,0],(0,750,750,100))
+            self.score +=100
+            takes[0].rect.x=1000
+        if collect:
+            self.ammo+=6
+            collect[0].rect.x=1000
+    
+class Shoot():
+    def __init__(self,x,y,radius,color,direction):
+        self.x = x
+        self.y = y
+        self.radius = radius
+        self.color = color
+        self.direction = direction
+        self.vel = 8 * direction
+
+    def update(self,screen):
+        if self.x < 750 and self.x > 0:
+            self.x += self.vel
+        else:
+            self.x=900
+        pygame.draw.circle(screen, self.color, (self.x,self.y), self.radius)
+
+class Gun(pygame.sprite.Sprite):
+    def __init__(self,x,y):
+        pygame.sprite.Sprite.__init__(self)
+        self.screen = pygame.display.set_mode((750,850))
+        self.gun = pygame.image.load(("gun.png"))
+        self.rect = self.gun.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+    def update(self):
+        self.screen.blit(self.gun,(self.rect.x,self.rect.y))
+        
+class MainFloor(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.screen = pygame.display.set_mode((750,850))
+        self.floor = pygame.image.load("mainFloor.jpg")
+        self.rect = self.floor.get_rect()
+        self.rect.x = 0
+        self.rect.y = 675
+    def update(self):
+        self.screen.blit(self.floor,(0,675))
+
+class Platform1(pygame.sprite.Sprite):
+    def __init__(self,x,y):
+        pygame.sprite.Sprite.__init__(self)
+        self.width = 251
+        self.height = 45
+        self.floor = pygame.image.load("floors.jpg")
+        self.img = pygame.Surface((self.width,self.height))
+        self.rect = self.floor.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.pos= vec(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+    def update(self):
+        self.screen.blit(self.floor,(self.pos))
+
+class Platform2(pygame.sprite.Sprite):
+    def __init__(self,x,y):
+        pygame.sprite.Sprite.__init__(self)
+        self.floor = pygame.image.load("bigfloors.jpg")
+        self.img = pygame.Surface((370,45))
+        self.rect = self.floor.get_rect()
+        self.pos=(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 370
+        self.height = 45
+        self.rect.x = x
+        self.rect.y = y
+    def update(self):
+        self.screen.blit(self.floor,(self.pos))
+        
+class Platform3(pygame.sprite.Sprite):
+    def __init__(self,x,y):
+        pygame.sprite.Sprite.__init__(self)
+        self.floor = pygame.image.load("miniFloor.jpg")
+        self.img = pygame.Surface((104,45))
+        self.rect = self.floor.get_rect()
+        self.pos=(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 104
+        self.height = 45
+        self.rect.x = x
+        self.rect.y = y
+    def update(self):
+        self.screen.blit(self.floor,(self.pos))
+        
+class Door(pygame.sprite.Sprite):
+    def __init__(self,x,y):
+        pygame.sprite.Sprite.__init__(self)
+        self.door = pygame.image.load("door.jpg")
+        self.rect = self.door.get_rect()
+        self.pos=(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 52
+        self.height = 67
+        self.rect.x = x
+        self.rect.y = y
+    def update(self):
+        self.screen.blit(self.door,(self.pos))
+        
+class MovingPlatform1(pygame.sprite.Sprite):
+    
+    def __init__(self, x, y, end, game):
+        pygame.sprite.Sprite.__init__(self)
+        self.game = game
+        self.floor = pygame.image.load("floors.jpg")
+        self.pos= vec(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 251
+        self.height = 45
+        self.path = [x, end]
+        self.velocity = 4
+        self.rect = self.floor.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        
+
+    def update(self):
+        if self.velocity > 0:
+            if self.rect.x < self.path[1] + self.velocity:
+                self.rect.x += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.x += self.velocity
+        else:
+            if self.rect.x > self.path[0] - self.velocity:
+                self.rect.x += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.x += self.velocity
+                self.walkCount = 0
+        self.screen.blit(self.floor, (self.rect.x,self.rect.y))
+            
+class MovingPlatform2(pygame.sprite.Sprite):
+
+    def __init__(self, x, y, end, game):
+        pygame.sprite.Sprite.__init__(self)
+        self.game = game
+        self.floor = pygame.image.load("bigfloors.jpg")
+        self.pos= vec(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 370
+        self.height = 45
+        self.path = [x, end]
+        self.velocity = 4
+        self.rect = self.floor.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        
+
+    def update(self):
+        if self.velocity > 0:
+            if self.rect.x < self.path[1] + self.velocity:
+                self.rect.x += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.x += self.velocity
+        else:
+            if self.rect.x > self.path[0] - self.velocity:
+                self.rect.x += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.x += self.velocity
+        self.screen.blit(self.floor, (self.rect.x,self.rect.y))
+    
+class MovingPlatform3(pygame.sprite.Sprite):
+
+
+
+
+    def __init__(self, x, y, end, game):
+        pygame.sprite.Sprite.__init__(self)
+        self.game = game
+        self.floor = pygame.image.load("miniFloor.jpg")
+        self.pos= vec(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 104
+        self.height = 45
+        self.path = [x, end]
+        self.velocity = 4
+        self.rect = self.floor.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        
+
+    def update(self):
+        if self.velocity > 0:
+            if self.rect.x < self.path[1] + self.velocity:
+                self.rect.x += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.x += self.velocity
+        else:
+            if self.rect.x > self.path[0] - self.velocity:
+                self.rect.x += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.x += self.velocity
+        self.screen.blit(self.floor, (self.rect.x,self.rect.y))
+        
+class UpDownPlatform(pygame.sprite.Sprite):
+
+    def __init__(self, x, y, end, game):
+        pygame.sprite.Sprite.__init__(self)
+        self.game = game
+        self.floor = pygame.image.load("miniFloor.jpg")
+        self.pos= vec(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 251
+        self.height = 45
+        self.path = [y, end]
+        self.velocity = 6
+        self.rect = self.floor.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        
+
+    def update(self):
+        if self.velocity > 0:
+            if self.rect.y < self.path[1] + self.velocity:
+                self.rect.y += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.y += self.velocity
+        else:
+            if self.rect.y > self.path[0] - self.velocity:
+                self.rect.y += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.y += self.velocity
+        self.screen.blit(self.floor, (self.rect.x,self.rect.y))
+
+class Enemy(pygame.sprite.Sprite):
+    
+    walkRight = [pygame.image.load('R1E.png'), pygame.image.load('R2E.png'),
+             pygame.image.load('R3E.png'), pygame.image.load('R4E.png'),
+             pygame.image.load('R5E.png'), pygame.image.load('R6E.png'),
+             pygame.image.load('R7E.png'), pygame.image.load('R8E.png'),
+             pygame.image.load('R9E.png'),pygame.image.load('R10E.png'),
+             pygame.image.load('R11E.png')]
+    walkLeft =  [pygame.image.load('L1E.png'), pygame.image.load('L2E.png'),
+             pygame.image.load('L3E.png'), pygame.image.load('L4E.png'),
+             pygame.image.load('L5E.png'), pygame.image.load('L6E.png'),
+             pygame.image.load('L7E.png'), pygame.image.load('L8E.png'),
+             pygame.image.load('L9E.png'),pygame.image.load('L10E.png'),
+             pygame.image.load('L11E.png')]
+    
+    def __init__(self, x, y, end, game):
+        pygame.sprite.Sprite.__init__(self)
+        self.game = game
+        self.enemy = pygame.image.load("R1E.png")
+        self.pos= vec(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 75
+        self.height = 75
+        self.path = [x, end]
+        self.walkCount = 0
+        self.velocity = 1
+        self.isAlive = True
+        self.rect = self.enemy.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+    def update(self):
+        if self.velocity > 0:
+            if self.rect.x < self.path[1] + self.velocity:
+                self.rect.x += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.x += self.velocity
+                self.walkCount = 0
+        else:
+            if self.rect.x > self.path[0] - self.velocity:
+                self.rect.x += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.x += self.velocity
+                self.walkCount = 0
+        if self.walkCount + 1 >= 77:
+            self.walkCount = 0
+        
+        if self.velocity > 0:
+            self.screen.blit(self.walkRight[self.walkCount//7], (self.rect.x,self.rect.y))
+            self.walkCount += 1
+        else:
+            self.screen.blit(self.walkLeft[self.walkCount//7], (self.rect.x,self.rect.y))
+            self.walkCount += 1
+            
+class StandingEnemy(pygame.sprite.Sprite):
+      
+    def __init__(self, x, y,end,game):
+        pygame.sprite.Sprite.__init__(self)
+        self.game = game
+        self.enemy = pygame.image.load("L1E.png")
+        self.pos= vec(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 75
+        self.height = 75
+        self.path = [y, end]
+        self.walkCount = 0
+        self.velocity = 6
+        self.isAlive = True
+        self.rect = self.enemy.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+    def update(self):
+        if self.velocity > 0:
+            if self.rect.y < self.path[1] + self.velocity:
+                self.rect.y += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.y += self.velocity
+        else:
+            if self.rect.y > self.path[0] - self.velocity:
+                self.rect.y += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.y += self.velocity
+        self.screen.blit(self.enemy, (self.rect.x,self.rect.y))
+    
+class MovingEnemy(pygame.sprite.Sprite):
+      
+    def __init__(self, x, y,end,game):
+        pygame.sprite.Sprite.__init__(self)
+        self.game = game
+        self.enemy = pygame.image.load("L1E.png")
+        self.pos= vec(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 75
+        self.height = 75
+        self.path = [x, end]
+        self.walkCount = 0
+        self.velocity = 4
+        self.isAlive = True
+        self.rect = self.enemy.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+    def update(self):
+        if self.velocity > 0:
+            if self.rect.x < self.path[1] + self.velocity:
+                self.rect.x += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.x += self.velocity
+        else:
+            if self.rect.x > self.path[0] - self.velocity:
+                self.rect.x += self.velocity
+            else:
+                self.velocity = self.velocity * -1
+                self.rect.x += self.velocity
+        self.screen.blit(self.enemy, (self.rect.x,self.rect.y))
+
+        
+class Coins(pygame.sprite.Sprite):
+    coins = [pygame.image.load("coin1.png"),pygame.image.load("coin2.png"),
+             pygame.image.load("coin3.png"),pygame.image.load("coin4.png"),
+             pygame.image.load("coin5.png"),pygame.image.load("coin6.png")]
+
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.coin = pygame.image.load("coin1.png")
+        self.pos= vec(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.width = 75
+        self.height = 75
+        self.count = 0
+        self.isTaken = False
+        self.rect = self.coin.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+    def update(self):
+        self.count+=1
+        if self.count>=60:
+            self.count=0
+        self.screen.blit(self.coins[self.count//12], (self.rect.x,self.rect.y))
+
+
+class Teleporter(pygame.sprite.Sprite):
+    def __init__(self,x,y):
+        pygame.sprite.Sprite.__init__(self)
+        self.door = pygame.image.load("teleporter.jpg")
+        self.rect = self.door.get_rect()
+        self.pos=(x,y)
+        self.screen = pygame.display.set_mode((750,850))
+        self.rect.x = x+20
+        self.rect.y = y
+    def update(self):
+        self.screen.blit(self.door,(self.pos))
+
+
+
+
+
+
+import pygame, sys
+from Sprites import *
+pygame.init()
+bg = pygame.image.load("Background.jpg")
+myfont = pygame.font.SysFont("Arial", 50)
+smallFont = pygame.font.SysFont("Arial",35)
+pygame.mixer.music.set_volume(0.1)
+def draw_text(text, font, color, screen , x, y):
+    textObject = font.render(text, 1, color)
+    textRect = textObject.get_rect()
+    textRect.topleft = (x, y)
+    screen.blit(textObject, textRect)    
+    
+class Game:
+    def __init__(self,nextlevel):
+        pygame.init()
+        self.screen=pygame.display.set_mode((750,850))
+        pygame.display.set_caption("Phantom Level 1")
+        self.clock = pygame.time.Clock()
+        self.running = True
+        self.lvl2=nextlevel
+        
+    def newGame(self):
+        self.platforms = pygame.sprite.Group()
+        self.doors = pygame.sprite.Group()
+        self.coins = pygame.sprite.Group()
+        self.moving = pygame.sprite.Group()
+        self.doors2 = pygame.sprite.Group()
+        self.guns = pygame.sprite.Group()
+        self.teles = pygame.sprite.Group()
+        self.tele1 = Teleporter(-100,-100)
+        self.teles.add(self.tele1)
+        self.g = Gun(500,450)
+        self.guns.add(self.g)
+        self.player = Player(self)
+        self.p1 = Platform1(502,487)
+        self.p2 = Platform2(0,375)
+        self.p3 = Platform1(-100,225)
+        self.p4 = Platform3(300,75)
+        self.p5 = Platform2(502,75)
+        self.p6 = Platform3(-5,70)
+        self.p7 = MovingPlatform3(-40,-190,-500,self)
+        self.nxtlvl = Door(690,7)
+        self.doors2.add(self.nxtlvl)
+        self.c1= Coins(300,300)
+        self.c2 = Coins(0,300)
+        self.c3 = Coins(20,10)
+        self.c4 = Coins(700,400)
+        self.c5 = Coins(420,125)
+        self.coins.add(self.c5)
+        self.coins.add(self.c4)
+        self.coins.add(self.c1)
+        self.coins.add(self.c2)
+        self.coins.add(self.c3)
+        self.platforms.add(self.p3)
+        self.platforms.add(self.p1)
+        self.platforms.add(self.p2)
+        self.platforms.add(self.p4)
+        self.platforms.add(self.p5)
+        self.platforms.add(self.p6)
+        self.platforms.add(self.p7)
+        self.doors.add(self.nxtlvl)
+        self.enemy1 = Enemy(0,315,330,self)
+        self.enemy2 = Enemy(502,428,675,self)
+        self.enemy3 = Enemy(0,165,150,self)
+        self.enemy4 = MovingEnemy(-100,-100,-100,self)
+        self.enemies = pygame.sprite.Group()
+        self.enemies.add(self.enemy1)
+        self.enemies.add(self.enemy2)
+        self.enemies.add(self.enemy3)
+        self.enemies.add(self.enemy4)
+        self.floor = MainFloor()
+        self.platforms.add(self.floor)
+        self.run()
+        
+    def run(self):
+        self.playing = True
+        while self.playing:
+            self.clock.tick(85)
+            self.events()
+            self.update()
+            self.redraw()
+            
+    def update(self):
+        if self.player.indicator<0: 
+            hits = pygame.sprite.spritecollide(self.player,self.platforms,False)
+            if hits:
+                self.player.rect.y=hits[0].rect.top -self.player.height + 5
+        dies = pygame.sprite.spritecollide(self.player,self.enemies,False)
+        if dies:
+            self.player.hearts-=1
+            pygame.mixer.music.load("gruntsound.wav")
+            pygame.mixer.music.play(1)
+            pygame.draw.rect(self.screen,[0,0,0],(0,750,250,100))
+            self.player.rect.x=self.player.pos.x
+            self.player.rect.y=self.player.pos.y
+            if self.player.hearts==0:
+                self.playing=False
+        onMove = pygame.sprite.spritecollide(self.player,self.moving,False)
+        if onMove:
+            keys = pygame.key.get_pressed()
+            self.player.rect.x+=onMove[0].velocity
+        nxt = pygame.sprite.spritecollide(self.player,self.doors,False)
+        if nxt and self.player.score==500:
+            self.lvl2.newGame()
+        for i in self.player.bullets:
+            for j in self.enemies:
+                if j.rect.x<i.x<j.rect.x+j.rect.width and j.rect.y<i.y<j.rect.y+j.rect.height:
+                    j.rect.x = 1000
+                    i.x = 1000
+        ports = pygame.sprite.spritecollide(self.player,self.teles,False)
+        if ports:
+            self.player.rect.x = 0
+            self.player.rect.y = -100
+            
+
+            
+    def events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                if self.playing:
+                    self.playing = False
+                self.running = False
+                if self.running==False:
+                    pygame.quit()
+                    quit()
+            if event.type == pygame.KEYDOWN: 
+                if event.key == pygame.K_r:
+                    self.newGame()
+        
+    def scoreBoard(self):
+        draw_text(f"Score: {self.player.score}", myfont,[255,255,255],self.screen,275,775)
+        draw_text(f"Lives: {self.player.hearts}", smallFont, [255,255,255],self.screen,100,760)
+        draw_text(f"Bullets: {self.player.ammo}", smallFont, [255,255,255],self.screen,500,775)
+    
+    def mainMenu(self):
+        click = False
+        pygame.mixer.music.load("MainSong.ogg")
+        pygame.mixer.music.play(-1)
+        while True:
+            self.screen.fill([0,0,0])
+            draw_text("The Phantom", myfont,[255,0,0],self.screen,250,50)
+            self.screen.blit(pygame.image.load("standing.png"),(325,130))
+            mx, my = pygame.mouse.get_pos() 
+            button_1 = pygame.Rect(225, 300, 300, 100)
+            if button_1.collidepoint((mx, my)):
+                if click:
+                    pygame.mixer.music.pause()
+                    self.newGame()
+                click=False
+            pygame.draw.rect(self.screen, (50,50,50), button_1)
+            draw_text('Start Game', myfont, (255, 255, 255), self.screen, 270, 315)
+            draw_text('Tutorial : ', smallFont, (255, 255, 255), self.screen, 150, 420)
+            draw_text('1- Right and left arrow keys to move ', smallFont, (255, 255, 255), self.screen, 150, 450)
+            draw_text('2- SpaceBar to jump', smallFont, (255, 255, 255), self.screen, 150, 480)
+            draw_text('3- Collect all the coins to reach next level ', smallFont, (255, 255, 255), self.screen, 150, 510)
+            draw_text('4- Stay away from green goblins ', smallFont, (255, 255, 255), self.screen, 150, 540)
+            draw_text('5- pick up gun if you want to kill the goblins ', smallFont, (255, 255, 255), self.screen, 150, 570)
+            draw_text('6- Have Fun! ', smallFont, (255, 255, 255), self.screen, 150, 600)
+            draw_text("7- Press r to restart the full game", smallFont, (255,255,255), self.screen,150,630)
+            click = False
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        click = True 
+            pygame.display.update()
+    
+    def gameOverWin(self):
+        click = False
+        pygame.mixer.music.load("MainSong.ogg")
+        pygame.mixer.music.play(-1)
+        while True:
+            self.screen.fill([0,0,0])
+            draw_text("You Won!!!!!", myfont,[255,0,0],self.screen,250,50)
+            self.screen.blit(pygame.image.load("standing.png"),(325,130))
+            mx, my = pygame.mouse.get_pos() 
+            button_1 = pygame.Rect(225, 300, 300, 100)
+            if button_1.collidepoint((mx, my)):
+                if click:
+                    pygame.mixer.music.pause()
+                    self.newGame()
+                click=False
+            pygame.draw.rect(self.screen, (50,50,50), button_1)
+            draw_text('Play Again?', myfont, (255, 255, 255), self.screen, 270, 315)
+            draw_text('Tutorial : ', smallFont, (255, 255, 255), self.screen, 150, 420)
+            draw_text('1- Right and left arrow keys to move ', smallFont, (255, 255, 255), self.screen, 150, 450)
+            draw_text('2- SpaceBar to jump', smallFont, (255, 255, 255), self.screen, 150, 480)
+            draw_text('3- Collect all the coins to reach next level ', smallFont, (255, 255, 255), self.screen, 150, 510)
+            draw_text('4- Stay away from green goblins ', smallFont, (255, 255, 255), self.screen, 150, 540)
+            draw_text('5- pick up gun if you want to kill the goblins ', smallFont, (255, 255, 255), self.screen, 150, 570)
+            draw_text('6- Have Fun! ', smallFont, (255, 255, 255), self.screen, 150, 600)
+            draw_text("7- Press r to restart the full game", smallFont, (255,255,255), self.screen,150,630)
+            click = False
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        click = True 
+            pygame.display.update()
+    
+    
+    def redraw(self):
+        self.screen.blit(bg,(0,0))
+        self.floor.update()
+        self.c1.update()
+        self.nxtlvl.update()
+        self.player.update()
+        self.p1.update()
+        self.p2.update()
+        self.p3.update()
+        self.p4.update()
+        self.p5.update()
+        self.p6.update()
+        self.p7.update()
+        self.c2.update()
+        self.c3.update()
+        self.c4.update()
+        self.c5.update()
+        self.g.update()
+        self.enemy1.update()
+        self.enemy2.update()
+        self.enemy3.update()
+        self.enemy4.update()
+        self.tele1.update()
+        for i in self.player.bullets:
+            i.update(self.screen)
+        self.scoreBoard()
+        pygame.display.update()
+        
+class Game2:
+    def __init__(self,nextlvl):
+        pygame.init()
+        self.screen=pygame.display.set_mode((750,750))
+        pygame.display.set_caption("Phantom")
+        self.clock = pygame.time.Clock()
+        self.running = True
+        self.game=Game(self)
+        self.next = nextlvl
+        
+    def newGame(self):
+        self.platforms = pygame.sprite.Group()
+        self.doors = pygame.sprite.Group()
+        self.doors2 = pygame.sprite.Group()
+        self.player = Player(self)
+        self.coins = pygame.sprite.Group()
+        self.moving = pygame.sprite.Group()
+        self.guns = pygame.sprite.Group()
+        self.teles = pygame.sprite.Group()
+        self.tele1 = Teleporter(-100,-100)
+        self.teles.add(self.tele1)
+        self.g = Gun(200,335)
+        self.guns.add(self.g)
+        self.p1 = MovingPlatform3(0,525,525,self)
+        self.p2 = MovingPlatform3(0,240,460,self)
+        self.p3 = UpDownPlatform(562,60,398,self)
+        self.p7 = MovingPlatform3(-40,-190,-500,self)
+        self.p4 = Platform1(300,113)
+        self.p5 = Platform3(675,75)
+        self.p6 = Platform1(0,375)
+        self.nxtlvl2 = Door(690,8)
+        self.moving.add(self.p1)
+        self.moving.add(self.p2)
+        self.c1 = Coins(20,50)
+        self.c2 = Coins(500,300)
+        self.c3 = Coins(20,300)
+        self.c4 = Coins(400,50)
+        self.c5 = Coins(600,25)
+        self.coins.add(self.c5)
+        self.coins.add(self.c4)
+        self.coins.add(self.c1)
+        self.coins.add(self.c2)
+        self.coins.add(self.c3)
+        self.platforms.add(self.p3)
+        self.platforms.add(self.p1)
+        self.platforms.add(self.p2)
+        self.platforms.add(self.p4)
+        self.platforms.add(self.p5)
+        self.platforms.add(self.p6)
+        self.platforms.add(self.p7)
+        self.doors2.add(self.nxtlvl2)
+        self.enemy1 = Enemy(323,56,503,self)
+        self.enemy2 = StandingEnemy(600,0,338,self)
+        self.enemy3 = Enemy(0,323,225,self)
+        self.enemy4 = MovingEnemy(-100,-100,-100,self)
+        self.enemies = pygame.sprite.Group()
+        self.enemies.add(self.enemy1)
+        self.enemies.add(self.enemy2)
+        self.enemies.add(self.enemy3)
+        self.enemies.add(self.enemy4)
+        self.floor = MainFloor()
+        self.platforms.add(self.floor)
+        self.run()
+        
+    def run(self):
+        self.playing = True
+        while self.playing:
+            self.clock.tick(85)
+            self.events()
+            self.update()
+            self.redraw()
+            
+    def scoreBoard(self):
+        draw_text(f"Score: {self.player.score}", myfont,[255,255,255],self.screen,275,775)
+        draw_text(f"Lives: {self.player.hearts}", smallFont, [255,255,255],self.screen,100,760)    
+        draw_text(f"Bullets: {self.player.ammo}", smallFont, [255,255,255],self.screen,500,775)
+    
+    def update(self):
+        if self.player.indicator<0: 
+            hits = pygame.sprite.spritecollide(self.player,self.platforms,False)
+            if hits:
+                self.player.rect.y=hits[0].rect.top -self.player.height + 5
+        onMove = pygame.sprite.spritecollide(self.player,self.moving,False)
+        if onMove:
+            keys = pygame.key.get_pressed()
+            self.player.rect.x+=onMove[0].velocity
+            
+        dies = pygame.sprite.spritecollide(self.player,self.enemies,False)
+        if dies:
+            self.player.hearts-=1
+            pygame.draw.rect(self.screen,[0,0,0],(0,750,250,100))
+            self.player.rect.x=self.player.pos.x
+            self.player.rect.y=self.player.pos.y
+            if self.player.hearts==0:
+                self.game.mainMenu()
+        nxt2 = pygame.sprite.spritecollide(self.player,self.doors2,False)
+        if nxt2 and self.player.score==500:
+            self.next.newGame()
+        for i in self.player.bullets:
+            for j in self.enemies:
+                if j.rect.x<i.x<j.rect.x+j.rect.width and j.rect.y<i.y<j.rect.y+j.rect.height:
+                    j.rect.x = 1000
+                    i.x = 1000
+        ports = pygame.sprite.spritecollide(self.player,self.teles,False)
+        if ports:
+            self.player.rect.x = 0
+            self.player.rect.y = -100
+                    
+    def events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                if self.playing:
+                    self.playing = False
+                self.running = False
+                if self.running==False:
+                    pygame.quit()
+                    quit()
+            if event.type == pygame.KEYDOWN: 
+                if event.key == pygame.K_r:
+                    self.game.newGame()
+    
+    def redraw(self):
+        self.screen.blit(bg,(0,0))
+        self.floor.update()
+        self.nxtlvl2.update()
+        self.player.update()
+        self.g.update()
+        self.p1.update()
+        self.p2.update()
+        self.p3.update()
+        self.p4.update()
+        self.p5.update()
+        self.p6.update()
+        self.p7.update()
+        self.c4.update()
+        self.c1.update()
+        self.c2.update()
+        self.c3.update()
+        self.c5.update()
+        self.enemy1.update()
+        self.enemy2.update()
+        self.enemy3.update()
+        self.enemy4.update()
+        self.tele1.update()
+        for i in self.player.bullets:
+            i.update(self.screen)
+        self.scoreBoard()
+        pygame.display.update()
+        
+class Game3:
+    def __init__(self,firstGame):
+        pygame.init()
+        self.screen=pygame.display.set_mode((750,850))
+        pygame.display.set_caption("Phantom Level 1")
+        self.clock = pygame.time.Clock()
+        self.running = True
+        self.firstGame = firstGame
+        
+    def newGame(self):
+        self.platforms = pygame.sprite.Group()
+        self.doors = pygame.sprite.Group()
+        self.coins = pygame.sprite.Group()
+        self.moving = pygame.sprite.Group()
+        self.doors2 = pygame.sprite.Group()
+        self.guns = pygame.sprite.Group()
+        self.teles = pygame.sprite.Group()
+        self.g = Gun(660,250)
+        self.guns.add(self.g)
+        self.player = Player(self)
+        self.tele1 = Teleporter(720,250)
+        self.teles.add(self.tele1)
+        self.p1 = UpDownPlatform(-50,450,650,self)
+        self.p2 = MovingPlatform3(189,410,500,self)
+        self.p3 = Platform1(650,300)
+        self.p4 = Platform2(-100,100)
+        self.p5 = Platform3(450,40)
+        self.p6 = Platform3(700,70)
+        self.p7 = MovingPlatform3(40,190,500,self)
+        self.enemy4 = MovingEnemy(65,130,525,self)
+        self.nxtlvl = Door(700,7)
+        self.doors2.add(self.nxtlvl)
+        self.c1= Coins(300,300)
+        self.c2 = Coins(0,300)
+        self.c3 = Coins(20,10)
+        self.c4 = Coins(460,-15)
+        self.c5 = Coins(300,130)
+        self.coins.add(self.c5)
+        self.coins.add(self.c4)
+        self.coins.add(self.c1)
+        self.coins.add(self.c2)
+        self.coins.add(self.c3)
+        self.platforms.add(self.p3)
+        self.platforms.add(self.p1)
+        self.platforms.add(self.p2)
+        self.moving.add(self.p2)
+        self.platforms.add(self.p4)
+        self.platforms.add(self.p5)
+        self.platforms.add(self.p6)
+        self.platforms.add(self.p7)
+        self.doors.add(self.nxtlvl)
+        self.enemy1 = Enemy(80,618,330,self)
+        self.enemy2 = Enemy(530,618,680,self)
+        self.enemy3 = Enemy(0,40,220,self)
+        self.enemies = pygame.sprite.Group()
+        self.enemies.add(self.enemy1)
+        self.enemies.add(self.enemy2)
+        self.enemies.add(self.enemy3)
+        self.enemies.add(self.enemy4)
+        self.floor = MainFloor()
+        self.platforms.add(self.floor)
+        self.run()
+        
+    def run(self):
+        self.playing = True
+        while self.playing:
+            self.clock.tick(85)
+            self.events()
+            self.update()
+            self.redraw()
+            
+    def update(self):
+        if self.player.indicator<0: 
+            hits = pygame.sprite.spritecollide(self.player,self.platforms,False)
+            if hits:
+                self.player.rect.y=hits[0].rect.top -self.player.height + 5
+        dies = pygame.sprite.spritecollide(self.player,self.enemies,False)
+        if dies:
+            self.player.hearts-=1
+            pygame.mixer.music.load("gruntsound.wav")
+            pygame.mixer.music.play(1)
+            pygame.draw.rect(self.screen,[0,0,0],(0,750,250,100))
+            self.player.rect.x=self.player.pos.x
+            self.player.rect.y=self.player.pos.y
+            if self.player.hearts==0:
+                self.newGame()
+        onMove = pygame.sprite.spritecollide(self.player,self.moving,False)
+        if onMove:
+            keys = pygame.key.get_pressed()
+            self.player.rect.x+=onMove[0].velocity
+        nxt = pygame.sprite.spritecollide(self.player,self.doors,False)
+        if nxt and self.player.score==500:
+            self.firstGame.gameOverWin(self)
+        for i in self.player.bullets:
+            for j in self.enemies:
+                if j.rect.x<i.x<j.rect.x+j.rect.width and j.rect.y<i.y<j.rect.y+j.rect.height:
+                    j.rect.x = 1000
+                    i.x = 1000
+        ports = pygame.sprite.spritecollide(self.player,self.teles,False)
+        if ports:
+            self.player.rect.x = 0
+            self.player.rect.y = -100
+            
+    def events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                if self.playing:
+                    self.playing = False
+                self.running = False
+                if self.running==False:
+                    pygame.quit()
+                    quit()
+            if event.type == pygame.KEYDOWN: 
+                if event.key == pygame.K_r:
+                    self.newGame()
+        
+    def scoreBoard(self):
+        draw_text(f"Score: {self.player.score}", myfont,[255,255,255],self.screen,275,775)
+        draw_text(f"Lives: {self.player.hearts}", smallFont, [255,255,255],self.screen,100,760)    
+        draw_text(f"Bullets: {self.player.ammo}", smallFont, [255,255,255],self.screen,500,775)
+    
+    def redraw(self):
+        self.screen.blit(bg,(0,0))
+        self.floor.update()
+        self.c1.update()
+        self.nxtlvl.update()
+        self.tele1.update()
+        self.player.update()
+        self.p1.update()
+        self.p2.update()
+        self.p3.update()
+        self.p4.update()
+        self.p5.update()
+        self.p6.update()
+        self.p7.update()
+        self.c2.update()
+        self.c3.update()
+        self.c4.update()
+        self.c5.update()
+        self.g.update()
+        self.enemy4.update()
+        self.enemy1.update()
+        self.enemy2.update()
+        self.enemy3.update()
+        for i in self.player.bullets:
+            i.update(self.screen)
+        self.scoreBoard()
+        pygame.display.update()
+    
+
+def Main():
+     g = Game(Game2(Game3(Game)))
+     g.mainMenu()
+
+
+
+Main()
